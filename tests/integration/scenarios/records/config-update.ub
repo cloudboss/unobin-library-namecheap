@@ -1,0 +1,7 @@
+# The domain input is supplied through the UB_VAR_domain environment variable.
+
+inputs: { www-address: '192.0.2.2' }
+
+configurations: { namecheap: { default: {} } }
+
+state: { @backend: local, path: '.unobin/state', encryption: { @key-source: noop } }
