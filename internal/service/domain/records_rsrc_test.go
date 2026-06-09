@@ -359,3 +359,55 @@ func TestDomainRecordsDeleteMerge(t *testing.T) {
 	assert.Equal(t, []string{recordKey("blog", "A", "203.0.113.9")},
 		hostKeys(f.state(itDomain).hosts))
 }
+
+func TestRelativeHost(t *testing.T) {
+	tests := []struct {
+		name     string
+		hostname string
+		domain   string
+		want     string
+	}{
+		{name: "fqdn under domain", hostname: "_abc.www.example.com", domain: "example.com", want: "_abc.www"},
+		{name: "fqdn with trailing dot", hostname: "_abc.www.example.com.", domain: "example.com", want: "_abc.www"},
+		{name: "bare domain is apex", hostname: "example.com", domain: "example.com", want: "@"},
+		{name: "bare domain trailing dot is apex", hostname: "example.com.", domain: "example.com", want: "@"},
+		{name: "relative label unchanged", hostname: "www", domain: "example.com", want: "www"},
+		{name: "apex unchanged", hostname: "@", domain: "example.com", want: "@"},
+		{name: "relative multi-label unchanged", hostname: "_abc.www", domain: "example.com", want: "_abc.www"},
+		{name: "case is normalized", hostname: "WWW.Example.com", domain: "example.com", want: "www"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, relativeHost(tt.hostname, tt.domain))
+		})
+	}
+}
+
+func TestDomainRecordsCreateMergeRelativizesFQDNHost(t *testing.T) {
+	f := newFakeNamecheap(t)
+	f.seed(itDomain, fakeDomain{usingOurDNS: true, emailType: "NONE"})
+
+	// ACM reports a validation record's name as a FQDN under the domain. The
+	// resource must send Namecheap the relative label, or Namecheap appends the
+	// zone and doubles it.
+	r := &DomainRecords{
+		Domain: itDomain,
+		Mode:   "MERGE",
+		Records: []Record{
+			{Hostname: "_abc123.www.example.com", Type: "CNAME", Address: "_x.acm-validations.aws."},
+		},
+	}
+	out, err := r.Create(context.Background(), f.configuration())
+	require.NoError(t, err)
+
+	// The write sends the relative host, not the FQDN.
+	assert.ElementsMatch(t, []sentRecord{
+		{Hostname: "_abc123.www", Type: "CNAME", Address: "_x.acm-validations.aws.", MXPref: "10", TTL: "1800"},
+	}, recordsFromForm(lastForm(t, f, "namecheap.domains.dns.setHosts")))
+
+	// The record pairs with its remote twin, so the read reports it present
+	// while the output echoes the hostname as configured.
+	assert.Equal(t, []string{
+		recordKey("_abc123.www.example.com", "CNAME", "_x.acm-validations.aws."),
+	}, outputKeys(out.Records))
+}

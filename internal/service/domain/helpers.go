@@ -105,12 +105,32 @@ func managedHash(hostname, recordType, address string) (string, error) {
 	return hashRecord(hostname, recordType, fixed), nil
 }
 
+// relativeHost reduces a hostname to the label Namecheap stores: the part
+// relative to domain. Namecheap's SetHosts appends the edited zone to whatever
+// HostName it is given, so a name supplied as a FQDN under domain -- the form
+// ACM reports a certificate's DNS validation record -- must have the domain
+// suffix removed first, or Namecheap doubles it. A trailing dot is not treated
+// as absolute, so it is dropped. The bare domain becomes "@"; a name already
+// relative to the domain is returned lowercased and otherwise unchanged.
+func relativeHost(hostname, domain string) string {
+	h := strings.ToLower(strings.TrimSuffix(hostname, "."))
+	d := strings.ToLower(strings.TrimSuffix(domain, "."))
+	switch {
+	case h == "" || h == d:
+		return "@"
+	case strings.HasSuffix(h, "."+d):
+		return strings.TrimSuffix(h, "."+d)
+	default:
+		return h
+	}
+}
+
 // recordHashSet builds the set of identity hashes for a list of managed
 // records.
-func recordHashSet(records []RecordOutput) (map[string]bool, error) {
+func recordHashSet(records []RecordOutput, domain string) (map[string]bool, error) {
 	set := make(map[string]bool, len(records))
 	for _, rec := range records {
-		h, err := managedHash(rec.Hostname, rec.Type, rec.Address)
+		h, err := managedHash(relativeHost(rec.Hostname, domain), rec.Type, rec.Address)
 		if err != nil {
 			return nil, err
 		}

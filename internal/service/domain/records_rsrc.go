@@ -137,7 +137,7 @@ func (r *DomainRecords) Update(
 	}
 	desired := r.desiredHostRecords()
 	if r.mergeMode() {
-		priorHashes, err := hashSetOfInputs(prior.Inputs.Records)
+		priorHashes, err := hashSetOfInputs(prior.Inputs.Records, r.Domain)
 		if err != nil {
 			return nil, err
 		}
@@ -177,7 +177,7 @@ func (r *DomainRecords) Delete(ctx context.Context, cfg any, prior *DomainRecord
 		// Overwrite owns the whole set, so deleting it clears every record.
 		return setHosts(client, domain, nil, namecheap.String(namecheap.EmailTypeNone))
 	}
-	priorHashes, err := recordHashSet(managed)
+	priorHashes, err := recordHashSet(managed, domain)
 	if err != nil {
 		return err
 	}
@@ -232,7 +232,7 @@ func (r *DomainRecords) matchedRecords(
 	}
 	var out []RecordOutput
 	for _, rec := range r.Records {
-		h, err := managedHash(rec.Hostname, rec.Type, rec.Address)
+		h, err := managedHash(relativeHost(rec.Hostname, r.Domain), rec.Type, rec.Address)
 		if err != nil {
 			continue
 		}
@@ -255,7 +255,7 @@ func (r *DomainRecords) allRecords(
 ) []RecordOutput {
 	configured := map[string]string{}
 	for _, rec := range r.Records {
-		h, err := managedHash(rec.Hostname, rec.Type, rec.Address)
+		h, err := managedHash(relativeHost(rec.Hostname, r.Domain), rec.Type, rec.Address)
 		if err != nil {
 			continue
 		}
@@ -281,6 +281,7 @@ func (r *DomainRecords) allRecords(
 func (r *DomainRecords) desiredHostRecords() []namecheap.DomainsDNSHostRecord {
 	records := make([]namecheap.DomainsDNSHostRecord, 0, len(r.Records))
 	for _, rec := range r.Records {
+		rec.Hostname = relativeHost(rec.Hostname, r.Domain)
 		records = append(records, rec.hostRecord())
 	}
 	return records
@@ -296,10 +297,10 @@ func (r *DomainRecords) normalizedMode() string {
 
 // hashSetOfInputs builds the identity-hash set for a list of configured
 // records, used to find the records a prior apply owned.
-func hashSetOfInputs(records []Record) (map[string]bool, error) {
+func hashSetOfInputs(records []Record, domain string) (map[string]bool, error) {
 	set := make(map[string]bool, len(records))
 	for _, rec := range records {
-		h, err := managedHash(rec.Hostname, rec.Type, rec.Address)
+		h, err := managedHash(relativeHost(rec.Hostname, domain), rec.Type, rec.Address)
 		if err != nil {
 			return nil, err
 		}
