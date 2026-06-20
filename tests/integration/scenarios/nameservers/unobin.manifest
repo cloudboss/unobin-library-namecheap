@@ -1,4 +1,0 @@
-requires: {}
-replace: {
-  'github.com/cloudboss/unobin-library-namecheap': '../../../..'
-}

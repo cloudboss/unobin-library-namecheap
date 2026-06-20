@@ -12,8 +12,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	library "github.com/cloudboss/unobin-library-namecheap"
+	"github.com/cloudboss/unobin-library-namecheap/internal/config"
 	"github.com/cloudboss/unobin-library-namecheap/internal/service/domain"
 )
+
+func TestLibraryRegistersConfiguration(t *testing.T) {
+	lib := library.Library()
+
+	require.NotNil(t, lib.Configuration)
+	assert.Equal(t, reflect.TypeFor[*config.Configuration](), lib.Configuration.ValueType())
+	assert.IsType(t, &config.Configuration{}, lib.Configuration.NewAny())
+}
 
 // TestLibraryRegistersDomainResources checks the runtime registration: both
 // domain resources are present under Resources and dispatch to their output

@@ -10,6 +10,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/defaults"
 	"github.com/cloudboss/unobin/pkg/runtime"
 
+	"github.com/cloudboss/unobin-library-namecheap/internal/config"
 	"github.com/cloudboss/unobin-library-namecheap/internal/ptr"
 )
 
@@ -90,11 +91,11 @@ func (r DomainRecords) Constraints() []constraint.Constraint {
 	}
 }
 
-func (r *DomainRecords) Create(ctx context.Context, cfg any) (*DomainRecordsOutput, error) {
-	client, err := newClient(cfg)
-	if err != nil {
-		return nil, err
-	}
+func (r *DomainRecords) Create(
+	ctx context.Context,
+	cfg *config.Configuration,
+) (*DomainRecordsOutput, error) {
+	client := newClient(cfg)
 	domain := strings.ToLower(r.Domain)
 	// A domain on custom nameservers rejects a host-record write, so return it
 	// to Namecheap's DNS first. On the normal path it already is, and this is a
@@ -103,6 +104,7 @@ func (r *DomainRecords) Create(ctx context.Context, cfg any) (*DomainRecordsOutp
 		return nil, err
 	}
 	desired := r.desiredHostRecords()
+	var err error
 	if r.mergeMode() {
 		err = createMergeHosts(client, domain, desired, r.EmailType)
 	} else {
@@ -115,22 +117,20 @@ func (r *DomainRecords) Create(ctx context.Context, cfg any) (*DomainRecordsOutp
 }
 
 func (r *DomainRecords) Read(
-	ctx context.Context, cfg any, prior *DomainRecordsOutput,
+	ctx context.Context,
+	cfg *config.Configuration,
+	prior *DomainRecordsOutput,
 ) (*DomainRecordsOutput, error) {
-	client, err := newClient(cfg)
-	if err != nil {
-		return nil, err
-	}
+	client := newClient(cfg)
 	return r.read(client)
 }
 
 func (r *DomainRecords) Update(
-	ctx context.Context, cfg any, prior runtime.Prior[DomainRecords, *DomainRecordsOutput],
+	ctx context.Context,
+	cfg *config.Configuration,
+	prior runtime.Prior[DomainRecords, *DomainRecordsOutput],
 ) (*DomainRecordsOutput, error) {
-	client, err := newClient(cfg)
-	if err != nil {
-		return nil, err
-	}
+	client := newClient(cfg)
 	domain := strings.ToLower(r.Domain)
 	if err := ensureOurDNS(client, domain); err != nil {
 		return nil, err
@@ -153,11 +153,12 @@ func (r *DomainRecords) Update(
 	return r.read(client)
 }
 
-func (r *DomainRecords) Delete(ctx context.Context, cfg any, prior *DomainRecordsOutput) error {
-	client, err := newClient(cfg)
-	if err != nil {
-		return err
-	}
+func (r *DomainRecords) Delete(
+	ctx context.Context,
+	cfg *config.Configuration,
+	prior *DomainRecordsOutput,
+) error {
+	client := newClient(cfg)
 	// A replace decodes the new inputs into the receiver before Delete runs, so
 	// the record set to remove is named by the prior output -- its domain, mode,
 	// and the records the prior apply owned.

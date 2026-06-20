@@ -15,15 +15,21 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name:        "namecheap",
 		Description: "Namecheap library for unobin.",
-		Configuration: &cfg.ConfigurationType{
+		Configuration: &cfg.ConfigurationType[*config.Configuration]{
 			Description: "Namecheap library configuration",
-			New:         func() any { return &config.Configuration{} },
+			New:         func() *config.Configuration { return &config.Configuration{} },
 		},
 		Resources: map[string]runtime.ResourceRegistration{
 			"domain-records": runtime.MakeResource[
-				domain.DomainRecords, *domain.DomainRecordsOutput](),
+				domain.DomainRecords,
+				*domain.DomainRecordsOutput,
+				*config.Configuration,
+			](),
 			"domain-nameservers": runtime.MakeResource[
-				domain.DomainNameservers, *domain.DomainNameserversOutput](),
+				domain.DomainNameservers,
+				*domain.DomainNameserversOutput,
+				*config.Configuration,
+			](),
 		},
 	}
 }

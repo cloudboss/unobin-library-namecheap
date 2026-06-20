@@ -1,0 +1,39 @@
+factory: {
+  description: '''>-
+    Delegates a Namecheap domain to a pair of custom nameservers in overwrite mode.
+    The primary nameserver comes from an input so the update pass changes it in place,
+    and destroy returns the domain to Namecheap's default DNS. This changes the
+    domain's nameserver delegation, so run it only against a disposable test domain.
+    '''
+
+  inputs: {
+    domain: {
+      type:        string
+      description: 'The Namecheap domain to delegate'
+    }
+    primary-ns: {
+      type:        string
+      default:     'ns1.example.com'
+      description: 'The primary custom nameserver; the update pass changes it'
+    }
+    namecheap-config: {
+      type: library-config('github.com/cloudboss/unobin-library-namecheap')
+    }
+  }
+
+  imports: { namecheap: 'github.com/cloudboss/unobin-library-namecheap' }
+
+  library-configs: { namecheap: var.namecheap-config }
+
+  resources: {
+    it: namecheap.domain-nameservers {
+      domain:      var.domain
+      mode:        'OVERWRITE'
+      nameservers: [var.primary-ns, 'ns2.example.com']
+    }
+  }
+
+  outputs: {
+    domain: { value: resource.it.domain }
+  }
+}

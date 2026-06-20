@@ -10,6 +10,8 @@ import (
 	"github.com/cloudboss/unobin/pkg/constraint"
 	"github.com/cloudboss/unobin/pkg/defaults"
 	"github.com/cloudboss/unobin/pkg/runtime"
+
+	"github.com/cloudboss/unobin-library-namecheap/internal/config"
 )
 
 // DomainNameservers delegates a Namecheap domain to a set of custom
@@ -65,12 +67,13 @@ func (r DomainNameservers) Constraints() []constraint.Constraint {
 	}
 }
 
-func (r *DomainNameservers) Create(ctx context.Context, cfg any) (*DomainNameserversOutput, error) {
-	client, err := newClient(cfg)
-	if err != nil {
-		return nil, err
-	}
+func (r *DomainNameservers) Create(
+	ctx context.Context,
+	cfg *config.Configuration,
+) (*DomainNameserversOutput, error) {
+	client := newClient(cfg)
 	domain := strings.ToLower(r.Domain)
+	var err error
 	if r.mergeMode() {
 		err = createMergeNameservers(client, domain, r.Nameservers)
 	} else {
@@ -83,23 +86,22 @@ func (r *DomainNameservers) Create(ctx context.Context, cfg any) (*DomainNameser
 }
 
 func (r *DomainNameservers) Read(
-	ctx context.Context, cfg any, prior *DomainNameserversOutput,
+	ctx context.Context,
+	cfg *config.Configuration,
+	prior *DomainNameserversOutput,
 ) (*DomainNameserversOutput, error) {
-	client, err := newClient(cfg)
-	if err != nil {
-		return nil, err
-	}
+	client := newClient(cfg)
 	return r.read(client)
 }
 
 func (r *DomainNameservers) Update(
-	ctx context.Context, cfg any, prior runtime.Prior[DomainNameservers, *DomainNameserversOutput],
+	ctx context.Context,
+	cfg *config.Configuration,
+	prior runtime.Prior[DomainNameservers, *DomainNameserversOutput],
 ) (*DomainNameserversOutput, error) {
-	client, err := newClient(cfg)
-	if err != nil {
-		return nil, err
-	}
+	client := newClient(cfg)
 	domain := strings.ToLower(r.Domain)
+	var err error
 	if r.mergeMode() {
 		err = updateMergeNameservers(client, domain, prior.Inputs.Nameservers, r.Nameservers)
 	} else {
@@ -112,12 +114,11 @@ func (r *DomainNameservers) Update(
 }
 
 func (r *DomainNameservers) Delete(
-	ctx context.Context, cfg any, prior *DomainNameserversOutput,
+	ctx context.Context,
+	cfg *config.Configuration,
+	prior *DomainNameserversOutput,
 ) error {
-	client, err := newClient(cfg)
-	if err != nil {
-		return err
-	}
+	client := newClient(cfg)
 	domain := strings.ToLower(r.Domain)
 	mode := modeMerge
 	var managed []string

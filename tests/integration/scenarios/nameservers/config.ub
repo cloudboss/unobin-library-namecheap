@@ -1,5 +1,15 @@
 # The domain input is supplied through the UB_VAR_domain environment variable.
 
-configurations: { namecheap: { default: {} } }
+stack: {
+  factory: {
+    inputs: {
+      namecheap-config: {}
+    }
+  }
 
-state: { @backend: local, path: '.unobin/state', encryption: { @key-source: noop } }
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
+}

@@ -1,7 +1,16 @@
 # The domain input is supplied through the UB_VAR_domain environment variable.
 
-inputs: { primary-ns: 'ns3.example.com' }
+stack: {
+  factory: {
+    inputs: {
+      primary-ns:       'ns3.example.com'
+      namecheap-config: {}
+    }
+  }
 
-configurations: { namecheap: { default: {} } }
+  state: local {
+    path: '.unobin/state'
+  }
 
-state: { @backend: local, path: '.unobin/state', encryption: { @key-source: noop } }
+  encryption: noop {}
+}

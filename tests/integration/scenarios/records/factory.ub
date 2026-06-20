@@ -1,0 +1,42 @@
+factory: {
+  description: '''>-
+    Manages a set of host records on a Namecheap domain in overwrite mode: a www A
+    record whose address comes from an input so the update pass changes it in place,
+    and a txt TXT record. Overwrite owns the whole record set, so apply replaces the
+    domain's records, the update pass changes the www address, and destroy clears them.
+    '''
+
+  inputs: {
+    domain: {
+      type:        string
+      description: 'The Namecheap domain to manage records for'
+    }
+    www-address: {
+      type:        string
+      default:     '192.0.2.1'
+      description: 'Address of the www A record; the update pass changes it'
+    }
+    namecheap-config: {
+      type: library-config('github.com/cloudboss/unobin-library-namecheap')
+    }
+  }
+
+  imports: { namecheap: 'github.com/cloudboss/unobin-library-namecheap' }
+
+  library-configs: { namecheap: var.namecheap-config }
+
+  resources: {
+    it: namecheap.domain-records {
+      domain: var.domain
+      mode:   'OVERWRITE'
+      records: [
+        { hostname: 'www', type: 'A', address: var.www-address, ttl: 300 },
+        { hostname: 'txt', type: 'TXT', address: 'hello from unobin', ttl: 300 },
+      ]
+    }
+  }
+
+  outputs: {
+    domain: { value: resource.it.domain }
+  }
+}

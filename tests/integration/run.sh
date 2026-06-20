@@ -73,7 +73,7 @@ for sdir in "${@}"; do
     echo "==> live/${name}"
 
     missing=""
-    for f in main.ub config.ub config-update.ub; do
+    for f in factory.ub config.ub config-update.ub; do
         [ -f "${sdir}/${f}" ] || { echo "missing ${f}" >&2; missing="true"; }
     done
     if [ -n "${missing}" ]; then
@@ -92,7 +92,7 @@ for sdir in "${@}"; do
     applied=""
     destroy_config="config.ub"
 
-    ${UNOBIN} compile -p "${sdir}/main.ub" -o "${build_dir}" --build || failed_step="compile"
+    ${UNOBIN} compile -p "${sdir}/factory.ub" -o "${build_dir}" --build || failed_step="compile"
 
     # The update config keeps its basename under update/ so both passes plan
     # under the same stack name. The domain reaches each plan through the

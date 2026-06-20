@@ -19,16 +19,9 @@ const (
 	modeOverwrite = "OVERWRITE"
 )
 
-// newClient unwraps the configuration the runtime hands every lifecycle method
-// and builds a Namecheap API client from it. The go-namecheap-sdk is not
-// context-aware, so ctx does not reach the API calls; the lifecycle methods
-// still carry it to satisfy the runtime contract.
-func newClient(cfg any) (*namecheap.Client, error) {
-	c, ok := cfg.(*config.Configuration)
-	if !ok {
-		return nil, fmt.Errorf("namecheapclient: unexpected configuration type %T", cfg)
-	}
-	return config.NewClient(c), nil
+// newClient builds a Namecheap API client from cfg.
+func newClient(cfg *config.Configuration) *namecheap.Client {
+	return config.NewClient(cfg)
 }
 
 // hashRecord identifies a host record by hostname, type, and address. The
