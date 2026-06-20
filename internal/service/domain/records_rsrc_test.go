@@ -255,6 +255,41 @@ func TestDomainRecordsReadMergeReturnsManaged(t *testing.T) {
 	assert.Equal(t, []string{recordKey("www", "A", "192.0.2.1")}, outputKeys(out.Records))
 }
 
+func TestDomainRecordsReadMergeUsesPriorOutputRecords(t *testing.T) {
+	f := newFakeNamecheap(t)
+	f.seed(itDomain, fakeDomain{
+		usingOurDNS: true,
+		emailType:   "NONE",
+		hosts: []fakeHost{
+			{
+				id:      1,
+				name:    "_abc123.www",
+				rtype:   "CNAME",
+				address: "_x.acm-validations.aws.",
+				ttl:     1800,
+			},
+		},
+	})
+
+	r := &DomainRecords{Domain: itDomain, Mode: "MERGE"}
+	prior := &DomainRecordsOutput{
+		Domain: itDomain,
+		Mode:   "MERGE",
+		Records: []RecordOutput{
+			{
+				Hostname: "_abc123.www.example.com.",
+				Type:     "CNAME",
+				Address:  "_x.acm-validations.aws.",
+			},
+		},
+	}
+	out, err := r.Read(context.Background(), f.configuration(), prior)
+	require.NoError(t, err)
+	assert.Equal(t, []string{
+		recordKey("_abc123.www.example.com.", "CNAME", "_x.acm-validations.aws."),
+	}, outputKeys(out.Records))
+}
+
 func TestDomainRecordsReadCustomNSNotFound(t *testing.T) {
 	f := newFakeNamecheap(t)
 	f.seed(itDomain, fakeDomain{usingOurDNS: false, nameservers: []string{"a.ns.net", "b.ns.net"}})

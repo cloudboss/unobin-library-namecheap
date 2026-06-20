@@ -113,7 +113,7 @@ func (r *DomainRecords) Create(
 	if err != nil {
 		return nil, err
 	}
-	return r.read(client)
+	return r.read(client, nil)
 }
 
 func (r *DomainRecords) Read(
@@ -122,7 +122,7 @@ func (r *DomainRecords) Read(
 	prior *DomainRecordsOutput,
 ) (*DomainRecordsOutput, error) {
 	client := newClient(cfg)
-	return r.read(client)
+	return r.read(client, prior)
 }
 
 func (r *DomainRecords) Update(
@@ -150,7 +150,7 @@ func (r *DomainRecords) Update(
 			return nil, err
 		}
 	}
-	return r.read(client)
+	return r.read(client, nil)
 }
 
 func (r *DomainRecords) Delete(
@@ -188,9 +188,12 @@ func (r *DomainRecords) Delete(
 // read returns the resource's settled output. A domain delegated to custom
 // nameservers has no host records this resource could own, so it reads as
 // runtime.ErrNotFound and a plan recreates it, which returns the domain to
-// Namecheap's DNS. Otherwise the live records are paired with the configured
-// ones: merge mode keeps the matches it owns, overwrite mode keeps them all.
-func (r *DomainRecords) read(client *namecheap.Client) (*DomainRecordsOutput, error) {
+// Namecheap's DNS. Merge mode checks the prior output when present, or the
+// configured records otherwise. Overwrite mode keeps every live record.
+func (r *DomainRecords) read(
+	client *namecheap.Client,
+	prior *DomainRecordsOutput,
+) (*DomainRecordsOutput, error) {
 	domain := strings.ToLower(r.Domain)
 	listResp, err := client.DomainsDNS.GetList(domain)
 	if err != nil {
@@ -210,7 +213,7 @@ func (r *DomainRecords) read(client *namecheap.Client) (*DomainRecordsOutput, er
 	remote := hostsOf(hostsResp)
 	var records []RecordOutput
 	if r.mergeMode() {
-		records = r.matchedRecords(remote)
+		records = r.matchedRecords(remote, prior)
 	} else {
 		records = r.allRecords(remote)
 	}
@@ -222,30 +225,42 @@ func (r *DomainRecords) read(client *namecheap.Client) (*DomainRecordsOutput, er
 	}, nil
 }
 
-// matchedRecords returns the configured records that are present remotely, in
-// configuration order, presenting each with the address as configured.
+// matchedRecords returns the records named by recordsForRead that are present
+// remotely, preserving their order and stored address text.
 func (r *DomainRecords) matchedRecords(
 	remote []namecheap.DomainsDNSHostRecordDetailed,
+	prior *DomainRecordsOutput,
 ) []RecordOutput {
 	present := make(map[string]bool, len(remote))
 	for _, d := range remote {
 		present[detailedHash(d)] = true
 	}
 	var out []RecordOutput
-	for _, rec := range r.Records {
+	for _, rec := range r.recordsForRead(prior) {
 		h, err := managedHash(relativeHost(rec.Hostname, r.Domain), rec.Type, rec.Address)
 		if err != nil {
 			continue
 		}
 		if present[h] {
-			out = append(out, RecordOutput{
-				Hostname: rec.Hostname,
-				Type:     rec.Type,
-				Address:  rec.Address,
-			})
+			out = append(out, rec)
 		}
 	}
 	return out
+}
+
+func (r *DomainRecords) recordsForRead(prior *DomainRecordsOutput) []RecordOutput {
+	if prior != nil {
+		return prior.Records
+	}
+	records := make([]RecordOutput, 0, len(r.Records))
+	for _, rec := range r.Records {
+		records = append(records, RecordOutput{
+			Hostname: rec.Hostname,
+			Type:     rec.Type,
+			Address:  rec.Address,
+		})
+	}
+	return records
 }
 
 // allRecords returns every live record in API order, presenting a record that
