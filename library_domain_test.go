@@ -79,19 +79,19 @@ func TestDomainSchemas(t *testing.T) {
 				{
 					Kind:    "predicate",
 					When:    "true",
-					Require: "((var.domain != null) && (@core.length(var.domain) >= 1))",
+					Require: "((input.domain != null) && (@core.length(input.domain) >= 1))",
 				},
 				{
 					Kind:    "predicate",
 					When:    "true",
-					Require: "(var.mode == 'MERGE' || var.mode == 'OVERWRITE')",
+					Require: "(input.mode == 'MERGE' || input.mode == 'OVERWRITE')",
 				},
 				{
 					Kind: "predicate",
-					When: "(var.email-type != null)",
-					Require: "(var.email-type == 'NONE' || var.email-type == 'MXE' || " +
-						"var.email-type == 'MX' || var.email-type == 'FWD' || " +
-						"var.email-type == 'OX' || var.email-type == 'GMAIL')",
+					When: "(input.email-type != null)",
+					Require: "(input.email-type == 'NONE' || input.email-type == 'MXE' || " +
+						"input.email-type == 'MX' || input.email-type == 'FWD' || " +
+						"input.email-type == 'OX' || input.email-type == 'GMAIL')",
 					Message: "email-type must be one of NONE, MXE, MX, FWD, OX, or GMAIL",
 				},
 				{
@@ -104,7 +104,7 @@ func TestDomainSchemas(t *testing.T) {
 						"@each.value.type == 'TXT' || @each.value.type == 'URL' || " +
 						"@each.value.type == 'URL301' || @each.value.type == 'FRAME')",
 					Message: "a record type must be a valid Namecheap record type",
-					ForEach: "var.records",
+					ForEach: "input.records",
 				},
 				{
 					Kind: "predicate",
@@ -112,7 +112,7 @@ func TestDomainSchemas(t *testing.T) {
 					Require: "(@each.value.ttl == null || @each.value.ttl >= 60) && " +
 						"(@each.value.ttl == null || @each.value.ttl <= 60000)",
 					Message: "a record ttl must be between 60 and 60000",
-					ForEach: "var.records",
+					ForEach: "input.records",
 				},
 				{
 					Kind: "predicate",
@@ -120,12 +120,12 @@ func TestDomainSchemas(t *testing.T) {
 					Require: "(@each.value.mx-pref == null || @each.value.mx-pref >= 0) && " +
 						"(@each.value.mx-pref == null || @each.value.mx-pref <= 255)",
 					Message: "a record mx-pref must be between 0 and 255",
-					ForEach: "var.records",
+					ForEach: "input.records",
 				},
 			},
 			Defaults: []lang.DefaultSpec{
-				{Field: "var.mode", Value: "'MERGE'"},
-				{Field: "var.records", Optional: true},
+				{Field: "input.mode", Value: "'MERGE'"},
+				{Field: "input.records", Optional: true},
 			},
 		},
 		"domain-nameservers": {
@@ -143,22 +143,22 @@ func TestDomainSchemas(t *testing.T) {
 				{
 					Kind:    "predicate",
 					When:    "true",
-					Require: "((var.domain != null) && (@core.length(var.domain) >= 1))",
+					Require: "((input.domain != null) && (@core.length(input.domain) >= 1))",
 				},
 				{
 					Kind:    "predicate",
 					When:    "true",
-					Require: "(var.mode == 'MERGE' || var.mode == 'OVERWRITE')",
+					Require: "(input.mode == 'MERGE' || input.mode == 'OVERWRITE')",
 				},
 				{
 					Kind:    "predicate",
 					When:    "true",
-					Require: "(var.nameservers == null || @core.length(var.nameservers) >= 2)",
+					Require: "(input.nameservers == null || @core.length(input.nameservers) >= 2)",
 					Message: "a domain must have at least 2 nameservers",
 				},
 			},
 			Defaults: []lang.DefaultSpec{
-				{Field: "var.mode", Value: "'MERGE'"},
+				{Field: "input.mode", Value: "'MERGE'"},
 			},
 		},
 	}

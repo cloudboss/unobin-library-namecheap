@@ -1,4 +1,4 @@
-manifest: {
+project: {
   requires: {
     'github.com/cloudboss/unobin-library-namecheap': {
       version: 'v0.0.0-unobin-replaced'

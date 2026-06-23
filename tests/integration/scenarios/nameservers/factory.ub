@@ -23,13 +23,13 @@ factory: {
 
   imports: { namecheap: 'github.com/cloudboss/unobin-library-namecheap' }
 
-  library-configs: { namecheap: var.namecheap-config }
+  library-configs: { namecheap: input.namecheap-config }
 
   resources: {
     it: namecheap.domain-nameservers {
-      domain:      var.domain
+      domain:      input.domain
       mode:        'OVERWRITE'
-      nameservers: [var.primary-ns, 'ns2.example.com']
+      nameservers: [input.primary-ns, 'ns2.example.com']
     }
   }
 

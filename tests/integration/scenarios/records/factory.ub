@@ -23,14 +23,14 @@ factory: {
 
   imports: { namecheap: 'github.com/cloudboss/unobin-library-namecheap' }
 
-  library-configs: { namecheap: var.namecheap-config }
+  library-configs: { namecheap: input.namecheap-config }
 
   resources: {
     it: namecheap.domain-records {
-      domain: var.domain
+      domain: input.domain
       mode:   'OVERWRITE'
       records: [
-        { hostname: 'www', type: 'A', address: var.www-address, ttl: 300 },
+        { hostname: 'www', type: 'A', address: input.www-address, ttl: 300 },
         { hostname: 'txt', type: 'TXT', address: 'hello from unobin', ttl: 300 },
       ]
     }

@@ -32,7 +32,7 @@ UNOBIN_VERSION="${UNOBIN_VERSION:?UNOBIN_VERSION is required}"
 # The scenarios declare the domain as a required input; the account-specific
 # value reaches every plan through this override rather than the committed
 # config files.
-export UB_VAR_domain="${NAMECHEAP_TEST_DOMAIN}"
+export UB_INPUT_domain="${NAMECHEAP_TEST_DOMAIN}"
 
 SCRIPT_DIR="$(cd "$(dirname "${0}")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -96,7 +96,7 @@ for sdir in "${@}"; do
 
     # The update config keeps its basename under update/ so both passes plan
     # under the same stack name. The domain reaches each plan through the
-    # UB_VAR_domain override, so the configs are staged as written.
+    # UB_INPUT_domain override, so the configs are staged as written.
     if [ -z "${failed_step}" ]; then
         (
             cd "${build_dir}"
