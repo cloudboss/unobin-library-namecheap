@@ -80,11 +80,13 @@ func TestDomainSchemas(t *testing.T) {
 					Kind:    "predicate",
 					When:    "true",
 					Require: "((input.domain != null) && (@core.length(input.domain) >= 1))",
+					Message: "domain is required",
 				},
 				{
 					Kind:    "predicate",
 					When:    "true",
 					Require: "(input.mode == 'MERGE' || input.mode == 'OVERWRITE')",
+					Message: "mode must be MERGE or OVERWRITE",
 				},
 				{
 					Kind: "predicate",
@@ -144,11 +146,13 @@ func TestDomainSchemas(t *testing.T) {
 					Kind:    "predicate",
 					When:    "true",
 					Require: "((input.domain != null) && (@core.length(input.domain) >= 1))",
+					Message: "domain is required",
 				},
 				{
 					Kind:    "predicate",
 					When:    "true",
 					Require: "(input.mode == 'MERGE' || input.mode == 'OVERWRITE')",
+					Message: "mode must be MERGE or OVERWRITE",
 				},
 				{
 					Kind:    "predicate",

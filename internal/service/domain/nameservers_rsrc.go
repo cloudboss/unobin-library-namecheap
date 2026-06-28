@@ -60,8 +60,10 @@ func (r DomainNameservers) Defaults() []defaults.Default {
 // given, the minimum Namecheap accepts for a custom delegation.
 func (r DomainNameservers) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
-		constraint.Must(constraint.NotEmpty(r.Domain)),
-		constraint.Must(constraint.OneOf(r.Mode, "MERGE", "OVERWRITE")),
+		constraint.Must(constraint.NotEmpty(r.Domain)).
+			Message("domain is required"),
+		constraint.Must(constraint.OneOf(r.Mode, "MERGE", "OVERWRITE")).
+			Message("mode must be MERGE or OVERWRITE"),
 		constraint.Must(constraint.MinItems(r.Nameservers, 2)).
 			Message("a domain must have at least 2 nameservers"),
 	}

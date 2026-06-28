@@ -68,8 +68,10 @@ func (r DomainRecords) Defaults() []defaults.Default {
 // is within the accepted range, and its MX preference fits a byte.
 func (r DomainRecords) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
-		constraint.Must(constraint.NotEmpty(r.Domain)),
-		constraint.Must(constraint.OneOf(r.Mode, "MERGE", "OVERWRITE")),
+		constraint.Must(constraint.NotEmpty(r.Domain)).
+			Message("domain is required"),
+		constraint.Must(constraint.OneOf(r.Mode, "MERGE", "OVERWRITE")).
+			Message("mode must be MERGE or OVERWRITE"),
 		constraint.When(constraint.Present(r.EmailType)).
 			Require(constraint.OneOf(r.EmailType,
 				"NONE", "MXE", "MX", "FWD", "OX", "GMAIL")).
