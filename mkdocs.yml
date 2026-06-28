@@ -1,0 +1,38 @@
+site_name: unobin Namecheap library
+site_url: https://cloudboss.co/docs/unobin-library-namecheap/
+repo_url: https://github.com/cloudboss/unobin-library-namecheap
+repo_name: cloudboss/unobin-library-namecheap
+copyright: Copyright (c) 2026 cloudboss
+
+theme:
+  name: cloudboss
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+plugins:
+  - search
+  - literate-nav:
+      nav_file: SUMMARY.md
+
+extra:
+  unobin_reference: true
+  version:
+    provider: mike
+    default: latest
+
+nav:
+  - Namecheap library: index.md
+  - Reference:
+      - Overview: reference/index.md
+      - Configuration: reference/configuration.md
+      - Resources: reference/resources/
