@@ -58,7 +58,7 @@ func (r *DomainRecords) ReplaceFields() []string {
 func (r DomainRecords) Defaults() []defaults.Default {
 	return []defaults.Default{
 		defaults.Value(r.Mode, "MERGE"),
-		defaults.Optional(r.Records),
+		defaults.Value(r.Records, []Record{}),
 	}
 }
 

@@ -3,7 +3,7 @@ module github.com/cloudboss/unobin-library-namecheap
 go 1.26.2
 
 require (
-	github.com/cloudboss/unobin v0.8.0-a.22
+	github.com/cloudboss/unobin v0.9.0-a.4
 	github.com/namecheap/go-namecheap-sdk/v2 v2.4.1
 	github.com/stretchr/testify v1.11.1
 )

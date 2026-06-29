@@ -24,6 +24,24 @@ func TestLibraryRegistersConfiguration(t *testing.T) {
 	assert.IsType(t, &config.Configuration{}, lib.Configuration.NewAny())
 }
 
+func TestConfigurationSchema(t *testing.T) {
+	schema, warnings, err := goschema.Read(".")
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+
+	assert.True(t, schema.HasConfiguration)
+	assert.Equal(t, map[string]typecheck.Type{
+		"api-key":     typecheck.TOptional(typecheck.TString()),
+		"api-user":    typecheck.TOptional(typecheck.TString()),
+		"base-url":    typecheck.TOptional(typecheck.TString()),
+		"client-ip":   typecheck.TOptional(typecheck.TString()),
+		"use-sandbox": typecheck.TOptional(typecheck.TBoolean()),
+		"user-name":   typecheck.TOptional(typecheck.TString()),
+	}, schema.Configuration)
+	assert.Empty(t, schema.ConfigurationDefaults)
+	assert.Empty(t, schema.ConfigurationConstraints)
+}
+
 // TestLibraryRegistersDomainResources checks the runtime registration: both
 // domain resources are present under Resources and dispatch to their output
 // type.
@@ -79,7 +97,7 @@ func TestDomainSchemas(t *testing.T) {
 				{
 					Kind:    "predicate",
 					When:    "true",
-					Require: "((input.domain != null) && (@core.length(input.domain) >= 1))",
+					Require: "(@core.length(input.domain) >= 1)",
 					Message: "domain is required",
 				},
 				{
@@ -109,25 +127,23 @@ func TestDomainSchemas(t *testing.T) {
 					ForEach: "input.records",
 				},
 				{
-					Kind: "predicate",
-					When: "(@each.value.ttl != null)",
-					Require: "(@each.value.ttl == null || @each.value.ttl >= 60) && " +
-						"(@each.value.ttl == null || @each.value.ttl <= 60000)",
+					Kind:    "predicate",
+					When:    "(@each.value.ttl != null)",
+					Require: "(@each.value.ttl >= 60) && (@each.value.ttl <= 60000)",
 					Message: "a record ttl must be between 60 and 60000",
 					ForEach: "input.records",
 				},
 				{
-					Kind: "predicate",
-					When: "(@each.value.mx-pref != null)",
-					Require: "(@each.value.mx-pref == null || @each.value.mx-pref >= 0) && " +
-						"(@each.value.mx-pref == null || @each.value.mx-pref <= 255)",
+					Kind:    "predicate",
+					When:    "(@each.value.mx-pref != null)",
+					Require: "(@each.value.mx-pref >= 0) && (@each.value.mx-pref <= 255)",
 					Message: "a record mx-pref must be between 0 and 255",
 					ForEach: "input.records",
 				},
 			},
 			Defaults: []lang.DefaultSpec{
 				{Field: "input.mode", Value: "'MERGE'"},
-				{Field: "input.records", Optional: true},
+				{Field: "input.records", Value: "[]"},
 			},
 		},
 		"domain-nameservers": {
@@ -145,7 +161,7 @@ func TestDomainSchemas(t *testing.T) {
 				{
 					Kind:    "predicate",
 					When:    "true",
-					Require: "((input.domain != null) && (@core.length(input.domain) >= 1))",
+					Require: "(@core.length(input.domain) >= 1)",
 					Message: "domain is required",
 				},
 				{
@@ -157,7 +173,7 @@ func TestDomainSchemas(t *testing.T) {
 				{
 					Kind:    "predicate",
 					When:    "true",
-					Require: "(input.nameservers == null || @core.length(input.nameservers) >= 2)",
+					Require: "(@core.length(input.nameservers) >= 2)",
 					Message: "a domain must have at least 2 nameservers",
 				},
 			},

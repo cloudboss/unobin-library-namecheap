@@ -7,8 +7,6 @@ import (
 
 	"github.com/namecheap/go-namecheap-sdk/v2/namecheap"
 
-	"github.com/cloudboss/unobin/pkg/sdk/cfg"
-
 	"github.com/cloudboss/unobin-library-namecheap/internal/ptr"
 )
 
@@ -24,12 +22,12 @@ const defaultClientIP = "0.0.0.0"
 // overrides the endpoint the SDK derives from UseSandbox; it exists for tests
 // and for pointing at a compatible proxy, and is normally left unset.
 type Configuration struct {
-	UserName   *cfg.String  `ub:"user-name"`
-	APIUser    *cfg.String  `ub:"api-user"`
-	APIKey     *cfg.String  `ub:"api-key,sensitive"`
-	ClientIP   *cfg.String  `ub:"client-ip"`
-	UseSandbox *cfg.Boolean `ub:"use-sandbox"`
-	BaseURL    *cfg.String  `ub:"base-url"`
+	UserName   *string `ub:"user-name"`
+	APIUser    *string `ub:"api-user"`
+	APIKey     *string `ub:"api-key,sensitive"`
+	ClientIP   *string `ub:"client-ip"`
+	UseSandbox *bool   `ub:"use-sandbox"`
+	BaseURL    *string `ub:"base-url"`
 }
 
 // NewClient builds a Namecheap API client from c. A nil c, or any field left
@@ -42,12 +40,12 @@ func NewClient(c *Configuration) *namecheap.Client {
 		useSandbox                                   bool
 	)
 	if c != nil {
-		userName = ptr.Deref(c.UserName).Value
-		apiUser = ptr.Deref(c.APIUser).Value
-		apiKey = ptr.Deref(c.APIKey).Value
-		clientIP = ptr.Deref(c.ClientIP).Value
-		useSandbox = ptr.Deref(c.UseSandbox).Value
-		baseURL = ptr.Deref(c.BaseURL).Value
+		userName = ptr.Deref(c.UserName)
+		apiUser = ptr.Deref(c.APIUser)
+		apiKey = ptr.Deref(c.APIKey)
+		clientIP = ptr.Deref(c.ClientIP)
+		useSandbox = ptr.Deref(c.UseSandbox)
+		baseURL = ptr.Deref(c.BaseURL)
 	}
 	userName = orEnv(userName, "NAMECHEAP_USER_NAME")
 	apiUser = orEnv(apiUser, "NAMECHEAP_API_USER")

@@ -12,8 +12,6 @@ import (
 
 	"github.com/namecheap/go-namecheap-sdk/v2/namecheap"
 
-	"github.com/cloudboss/unobin/pkg/sdk/cfg"
-
 	"github.com/cloudboss/unobin-library-namecheap/internal/config"
 )
 
@@ -97,10 +95,10 @@ func (f *fakeNamecheap) configuration() *config.Configuration {
 		f.t.Setenv(k, "")
 	}
 	return &config.Configuration{
-		UserName: &cfg.String{Value: "user"},
-		APIUser:  &cfg.String{Value: "user"},
-		APIKey:   &cfg.String{Value: "key"},
-		BaseURL:  &cfg.String{Value: f.server.URL},
+		UserName: new("user"),
+		APIUser:  new("user"),
+		APIKey:   new("key"),
+		BaseURL:  new(f.server.URL),
 	}
 }
 
