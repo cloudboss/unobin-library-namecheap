@@ -11,14 +11,18 @@ import (
 	"github.com/cloudboss/unobin-library-namecheap/internal/service/domain"
 )
 
+func LibraryConfiguration() *cfg.ConfigurationType[*config.Configuration] {
+	return &cfg.ConfigurationType[*config.Configuration]{
+		Description: "Namecheap library configuration",
+		New:         func() *config.Configuration { return &config.Configuration{} },
+	}
+}
+
 func Library() *runtime.Library {
 	return &runtime.Library{
-		Name:        "namecheap",
-		Description: "Namecheap library for unobin.",
-		Configuration: &cfg.ConfigurationType[*config.Configuration]{
-			Description: "Namecheap library configuration",
-			New:         func() *config.Configuration { return &config.Configuration{} },
-		},
+		Name:          "namecheap",
+		Description:   "Namecheap library for unobin.",
+		Configuration: LibraryConfiguration(),
 		Resources: map[string]runtime.ResourceRegistration{
 			"domain-records": runtime.MakeResource[
 				domain.DomainRecords,

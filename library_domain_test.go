@@ -25,9 +25,28 @@ func TestLibraryRegistersConfiguration(t *testing.T) {
 }
 
 func TestConfigurationSchema(t *testing.T) {
+	assertConfigurationSchema(t, readSchema(t))
+}
+
+func TestLibraryConfigurationSchema(t *testing.T) {
+	schema, warnings, err := goschema.ReadLibraryConfiguration(".")
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+
+	assertConfigurationSchema(t, schema)
+}
+
+func readSchema(t *testing.T) *runtime.LibrarySchema {
+	t.Helper()
+
 	schema, warnings, err := goschema.Read(".")
 	require.NoError(t, err)
 	require.Empty(t, warnings)
+	return schema
+}
+
+func assertConfigurationSchema(t *testing.T, schema *runtime.LibrarySchema) {
+	t.Helper()
 
 	assert.True(t, schema.HasConfiguration)
 	assert.Equal(t, map[string]typecheck.Type{
