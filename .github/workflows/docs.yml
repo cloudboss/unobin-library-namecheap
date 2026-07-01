@@ -20,4 +20,4 @@ jobs:
     with:
       version: ${{ inputs.version || github.ref_name }}
       setup-go: true
-      generate: go run github.com/cloudboss/cloudboss-docs/unobin/cmd/docgen@v0.1.4 --root . --out docs/reference
+      generate: go run github.com/cloudboss/cloudboss-docs/unobin/cmd/docgen@v0.2.0 --root . --out docs/reference
