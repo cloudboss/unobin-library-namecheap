@@ -30,6 +30,23 @@ type Configuration struct {
 	BaseURL    *string `ub:"base-url"`
 }
 
+// CurrentCredentialsForTarget combines active authorization fields with the
+// endpoint fields recorded for an existing resource.
+func CurrentCredentialsForTarget(
+	current *Configuration,
+	target *Configuration,
+) *Configuration {
+	resolved := &Configuration{}
+	if current != nil {
+		*resolved = *current
+	}
+	if target != nil {
+		resolved.UseSandbox = target.UseSandbox
+		resolved.BaseURL = target.BaseURL
+	}
+	return resolved
+}
+
 // NewClient builds a Namecheap API client from c. A nil c, or any field left
 // empty, draws from the NAMECHEAP_* environment variables; an unset client IP
 // settles on the placeholder default. A non-empty BaseURL replaces the

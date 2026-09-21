@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -30,22 +31,53 @@ type DomainNameservers struct {
 }
 
 // DomainNameserversOutput reports the domain, the resolved mode, and the
-// nameservers the resource owns. The nameservers carry the identity a
-// merge-mode Delete needs, since the runtime hands Delete the prior output
-// rather than the prior inputs.
+// nameservers the resource owns. Delete uses these nameservers to remove the
+// exact merge-mode set that the prior apply managed.
 type DomainNameserversOutput struct {
 	Domain      string   `ub:"domain"`
 	Mode        string   `ub:"mode"`
 	Nameservers []string `ub:"nameservers"`
 }
 
-func (r *DomainNameservers) SchemaVersion() int { return 1 }
-
-// ReplaceFields lists the input that identifies the resource. The domain is the
-// delegation's home; a different domain is a different delegation. Mode and the
-// nameservers reconcile in place.
-func (r *DomainNameservers) ReplaceFields() []string {
-	return []string{"domain"}
+func DomainNameserversDefinition() runtime.ResourceDefinition[
+	DomainNameservers,
+	*DomainNameserversOutput,
+	*config.Configuration,
+] {
+	domain := runtime.InputField(func(input *DomainNameservers) *string {
+		return &input.Domain
+	})
+	useSandbox := runtime.ConfigurationField(func(cfg *config.Configuration) **bool {
+		return &cfg.UseSandbox
+	})
+	baseURL := runtime.ConfigurationField(func(cfg *config.Configuration) **string {
+		return &cfg.BaseURL
+	})
+	return runtime.ResourceDefinition[
+		DomainNameservers,
+		*DomainNameserversOutput,
+		*config.Configuration,
+	]{
+		SchemaVersion: 1,
+		Validate: func(
+			ctx context.Context,
+			input DomainNameservers,
+			cfg *config.Configuration,
+		) error {
+			return input.validateApply(ctx, cfg)
+		},
+		Replace: runtime.Replacement[
+			DomainNameservers,
+			*DomainNameserversOutput,
+			*config.Configuration,
+		]{
+			Fields: []runtime.AnyInputField[DomainNameservers]{domain},
+			ConfigurationFields: []runtime.AnyConfigurationField[*config.Configuration]{
+				useSandbox,
+				baseURL,
+			},
+		},
+	}
 }
 
 // Defaults marks mode as defaulting to merge. The nameservers are required.
@@ -73,6 +105,9 @@ func (r *DomainNameservers) Create(
 	ctx context.Context,
 	cfg *config.Configuration,
 ) (*DomainNameserversOutput, error) {
+	if err := r.validate(); err != nil {
+		return nil, err
+	}
 	client := newClient(cfg)
 	domain := strings.ToLower(r.Domain)
 	var err error
@@ -90,17 +125,29 @@ func (r *DomainNameservers) Create(
 func (r *DomainNameservers) Read(
 	ctx context.Context,
 	cfg *config.Configuration,
-	prior *DomainNameserversOutput,
+	prior runtime.Prior[
+		DomainNameservers,
+		*DomainNameserversOutput,
+		*config.Configuration,
+	],
 ) (*DomainNameserversOutput, error) {
-	client := newClient(cfg)
-	return r.read(client)
+	client := newClient(config.CurrentCredentialsForTarget(cfg, prior.Configuration))
+	input := prior.Inputs
+	return input.read(client)
 }
 
 func (r *DomainNameservers) Update(
 	ctx context.Context,
 	cfg *config.Configuration,
-	prior runtime.Prior[DomainNameservers, *DomainNameserversOutput],
+	prior runtime.Prior[
+		DomainNameservers,
+		*DomainNameserversOutput,
+		*config.Configuration,
+	],
 ) (*DomainNameserversOutput, error) {
+	if err := r.validate(); err != nil {
+		return nil, err
+	}
 	client := newClient(cfg)
 	domain := strings.ToLower(r.Domain)
 	var err error
@@ -118,25 +165,61 @@ func (r *DomainNameservers) Update(
 func (r *DomainNameservers) Delete(
 	ctx context.Context,
 	cfg *config.Configuration,
-	prior *DomainNameserversOutput,
+	prior runtime.Prior[
+		DomainNameservers,
+		*DomainNameserversOutput,
+		*config.Configuration,
+	],
 ) error {
-	client := newClient(cfg)
-	domain := strings.ToLower(r.Domain)
-	mode := modeMerge
+	client := newClient(config.CurrentCredentialsForTarget(cfg, prior.Configuration))
+	domain := strings.ToLower(prior.Inputs.Domain)
+	mode := prior.Inputs.normalizedMode()
 	var managed []string
-	if prior != nil {
-		if prior.Domain != "" {
-			domain = strings.ToLower(prior.Domain)
-		}
-		if prior.Mode != "" {
-			mode = strings.ToUpper(prior.Mode)
-		}
-		managed = prior.Nameservers
+	if prior.Outputs != nil {
+		managed = prior.Outputs.Nameservers
 	}
 	if mode == modeOverwrite {
 		return setDefault(client, domain)
 	}
 	return deleteMergeNameservers(client, domain, managed)
+}
+
+func (r DomainNameservers) validate() error {
+	if r.Domain == "" {
+		return errors.New("domain is required")
+	}
+	if r.Mode != modeMerge && r.Mode != modeOverwrite {
+		return errors.New("mode must be MERGE or OVERWRITE")
+	}
+	if len(r.Nameservers) < 2 {
+		return errors.New("a domain must have at least 2 nameservers")
+	}
+	seen := make(map[string]bool, len(r.Nameservers))
+	for _, nameserver := range r.Nameservers {
+		if nameserver == "" {
+			return errors.New("a nameserver must not be empty")
+		}
+		key := strings.ToLower(nameserver)
+		if seen[key] {
+			return fmt.Errorf("duplicate nameserver %s", nameserver)
+		}
+		seen[key] = true
+	}
+	return nil
+}
+
+func (r DomainNameservers) validateApply(
+	ctx context.Context,
+	cfg *config.Configuration,
+) error {
+	if err := r.validate(); err != nil {
+		return err
+	}
+	client := newClient(cfg)
+	if _, err := client.DomainsDNS.GetList(strings.ToLower(r.Domain)); err != nil {
+		return fmt.Errorf("validate domain access: %w", err)
+	}
+	return nil
 }
 
 // read returns the managed nameservers. A domain on Namecheap's default DNS has

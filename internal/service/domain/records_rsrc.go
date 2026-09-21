@@ -2,6 +2,8 @@ package domain
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/namecheap/go-namecheap-sdk/v2/namecheap"
@@ -32,9 +34,8 @@ type DomainRecords struct {
 }
 
 // DomainRecordsOutput reports the domain, the resolved mode and email type, and
-// the records the resource owns. The records carry the identity a merge-mode
-// Delete needs, since the runtime hands Delete the prior output rather than the
-// prior inputs.
+// the records the resource owns. Delete uses these records to remove the exact
+// merge-mode set that the prior apply managed.
 type DomainRecordsOutput struct {
 	Domain    string         `ub:"domain"`
 	Mode      string         `ub:"mode"`
@@ -42,14 +43,45 @@ type DomainRecordsOutput struct {
 	Records   []RecordOutput `ub:"records"`
 }
 
-func (r *DomainRecords) SchemaVersion() int { return 1 }
-
-// ReplaceFields lists the input that identifies the resource. The domain is the
-// record set's home; a different domain is a different record set, so unobin's
-// replace removes the old one and creates the new. Mode, email type, and the
-// records reconcile in place.
-func (r *DomainRecords) ReplaceFields() []string {
-	return []string{"domain"}
+func DomainRecordsDefinition() runtime.ResourceDefinition[
+	DomainRecords,
+	*DomainRecordsOutput,
+	*config.Configuration,
+] {
+	domain := runtime.InputField(func(input *DomainRecords) *string {
+		return &input.Domain
+	})
+	useSandbox := runtime.ConfigurationField(func(cfg *config.Configuration) **bool {
+		return &cfg.UseSandbox
+	})
+	baseURL := runtime.ConfigurationField(func(cfg *config.Configuration) **string {
+		return &cfg.BaseURL
+	})
+	return runtime.ResourceDefinition[
+		DomainRecords,
+		*DomainRecordsOutput,
+		*config.Configuration,
+	]{
+		SchemaVersion: 1,
+		Validate: func(
+			ctx context.Context,
+			input DomainRecords,
+			cfg *config.Configuration,
+		) error {
+			return input.validateApply(ctx, cfg)
+		},
+		Replace: runtime.Replacement[
+			DomainRecords,
+			*DomainRecordsOutput,
+			*config.Configuration,
+		]{
+			Fields: []runtime.AnyInputField[DomainRecords]{domain},
+			ConfigurationFields: []runtime.AnyConfigurationField[*config.Configuration]{
+				useSandbox,
+				baseURL,
+			},
+		},
+	}
 }
 
 // Defaults marks mode as defaulting to merge and the record list as omittable;
@@ -97,6 +129,9 @@ func (r *DomainRecords) Create(
 	ctx context.Context,
 	cfg *config.Configuration,
 ) (*DomainRecordsOutput, error) {
+	if err := r.validate(); err != nil {
+		return nil, err
+	}
 	client := newClient(cfg)
 	domain := strings.ToLower(r.Domain)
 	// A domain on custom nameservers rejects a host-record write, so return it
@@ -121,17 +156,21 @@ func (r *DomainRecords) Create(
 func (r *DomainRecords) Read(
 	ctx context.Context,
 	cfg *config.Configuration,
-	prior *DomainRecordsOutput,
+	prior runtime.Prior[DomainRecords, *DomainRecordsOutput, *config.Configuration],
 ) (*DomainRecordsOutput, error) {
-	client := newClient(cfg)
-	return r.read(client, prior)
+	client := newClient(config.CurrentCredentialsForTarget(cfg, prior.Configuration))
+	input := prior.Inputs
+	return input.read(client, prior.Outputs)
 }
 
 func (r *DomainRecords) Update(
 	ctx context.Context,
 	cfg *config.Configuration,
-	prior runtime.Prior[DomainRecords, *DomainRecordsOutput],
+	prior runtime.Prior[DomainRecords, *DomainRecordsOutput, *config.Configuration],
 ) (*DomainRecordsOutput, error) {
+	if err := r.validate(); err != nil {
+		return nil, err
+	}
 	client := newClient(cfg)
 	domain := strings.ToLower(r.Domain)
 	if err := ensureOurDNS(client, domain); err != nil {
@@ -158,23 +197,14 @@ func (r *DomainRecords) Update(
 func (r *DomainRecords) Delete(
 	ctx context.Context,
 	cfg *config.Configuration,
-	prior *DomainRecordsOutput,
+	prior runtime.Prior[DomainRecords, *DomainRecordsOutput, *config.Configuration],
 ) error {
-	client := newClient(cfg)
-	// A replace decodes the new inputs into the receiver before Delete runs, so
-	// the record set to remove is named by the prior output -- its domain, mode,
-	// and the records the prior apply owned.
-	domain := strings.ToLower(r.Domain)
-	mode := modeMerge
+	client := newClient(config.CurrentCredentialsForTarget(cfg, prior.Configuration))
+	domain := strings.ToLower(prior.Inputs.Domain)
+	mode := prior.Inputs.normalizedMode()
 	var managed []RecordOutput
-	if prior != nil {
-		if prior.Domain != "" {
-			domain = strings.ToLower(prior.Domain)
-		}
-		if prior.Mode != "" {
-			mode = strings.ToUpper(prior.Mode)
-		}
-		managed = prior.Records
+	if prior.Outputs != nil {
+		managed = prior.Outputs.Records
 	}
 	if mode == modeOverwrite {
 		// Overwrite owns the whole set, so deleting it clears every record.
@@ -185,6 +215,76 @@ func (r *DomainRecords) Delete(
 		return err
 	}
 	return deleteMergeHosts(client, domain, priorHashes)
+}
+
+func (r DomainRecords) validate() error {
+	if r.Domain == "" {
+		return errors.New("domain is required")
+	}
+	if r.Mode != modeMerge && r.Mode != modeOverwrite {
+		return errors.New("mode must be MERGE or OVERWRITE")
+	}
+	if r.EmailType != nil && !validEmailType(*r.EmailType) {
+		return errors.New("email-type must be one of NONE, MXE, MX, FWD, OX, or GMAIL")
+	}
+	seen := make(map[string]bool, len(r.Records))
+	for i, rec := range r.Records {
+		if !validRecordType(rec.Type) {
+			return fmt.Errorf("record %d: invalid record type %q", i, rec.Type)
+		}
+		if rec.TTL != nil && (*rec.TTL < 60 || *rec.TTL > 60000) {
+			return fmt.Errorf("record %d: ttl must be between 60 and 60000", i)
+		}
+		if rec.MXPref != nil && (*rec.MXPref < 0 || *rec.MXPref > 255) {
+			return fmt.Errorf("record %d: mx-pref must be between 0 and 255", i)
+		}
+		hash, err := managedHash(
+			relativeHost(rec.Hostname, r.Domain),
+			rec.Type,
+			rec.Address,
+		)
+		if err != nil {
+			return fmt.Errorf("record %d: %w", i, err)
+		}
+		if seen[hash] {
+			return fmt.Errorf("duplicate record %s", stringifyRecord(rec.hostRecord()))
+		}
+		seen[hash] = true
+	}
+	return nil
+}
+
+func (r DomainRecords) validateApply(
+	ctx context.Context,
+	cfg *config.Configuration,
+) error {
+	if err := r.validate(); err != nil {
+		return err
+	}
+	client := newClient(cfg)
+	if _, err := client.DomainsDNS.GetList(strings.ToLower(r.Domain)); err != nil {
+		return fmt.Errorf("validate domain access: %w", err)
+	}
+	return nil
+}
+
+func validEmailType(emailType string) bool {
+	switch emailType {
+	case "NONE", "MXE", "MX", "FWD", "OX", "GMAIL":
+		return true
+	default:
+		return false
+	}
+}
+
+func validRecordType(recordType string) bool {
+	switch recordType {
+	case "A", "AAAA", "ALIAS", "CAA", "CNAME", "MX", "MXE", "NS", "TXT",
+		"URL", "URL301", "FRAME":
+		return true
+	default:
+		return false
+	}
 }
 
 // read returns the resource's settled output. A domain delegated to custom

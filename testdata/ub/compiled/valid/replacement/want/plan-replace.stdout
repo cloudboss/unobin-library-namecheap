@@ -1,0 +1,6 @@
+  (replace) resource.main
+      domain: 'prior.com' -> 'desired.com'  (forces replacement)
+      mode: 'OVERWRITE'
+      records: [{address: '192.0.2.1', hostname: 'www', type: 'A'}] -> [{address: '192.0.2.2', hostname: 'www', type: 'A'}]
+
+Plan: 0 to create, 0 to update, 1 to replace, 0 to destroy, 0 to rerun.

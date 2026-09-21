@@ -1,0 +1,11 @@
+stack: {
+  factory: {
+    inputs: {
+      domain:      'desired.com'
+      record-type: 'A'
+      address:     '192.0.2.2'
+    }
+  }
+  state: local { path: '.unobin/state' }
+  encryption: noop {}
+}

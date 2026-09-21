@@ -1,0 +1,11 @@
+stack: {
+  factory: {
+    inputs: {
+      domain:      'prior.com'
+      record-type: 'A'
+      address:     '192.0.2.1'
+    }
+  }
+  state: local { path: '.unobin/state' }
+  encryption: noop {}
+}

@@ -12,13 +12,14 @@ DOCGEN ?= go run github.com/cloudboss/cloudboss-docs/unobin/cmd/docgen@main
 
 .DEFAULT_GOAL := help
 
-.PHONY: help docs lint test test-integration-live
+.PHONY: help docs lint test test-all test-integration-live
 
 help:
 	@echo 'Targets:'
 	@echo '  docs                         Generate the reference manual.'
 	@echo '  lint                         Run golangci-lint in a container.'
-	@echo '  test                         Run unit tests on the host.'
+	@echo '  test                         Run tests without building a consumer.'
+	@echo '  test-all                     Run all tests, including compiled consumers.'
 	@echo '  test-integration-live        Run integration tests against the live Namecheap API.'
 
 $(DIR_OUT):
@@ -31,7 +32,10 @@ docs:
 	@$(DOCGEN) --root $(DIR_ROOT) --out docs/reference
 
 test:
-	@go test -v ./...
+	@go test -short ./...
+
+test-all:
+	@go test ./...
 
 lint:
 	@docker run --rm \
