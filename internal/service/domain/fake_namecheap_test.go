@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/namecheap/go-namecheap-sdk/v2/namecheap"
 
 	"github.com/cloudboss/unobin-library-namecheap/internal/config"
@@ -88,6 +89,10 @@ func (f *fakeNamecheap) sent(command string) []url.Values {
 // configuration returns a library configuration pointing the SDK at the fake
 // server, and clears the NAMECHEAP_* environment so the test is hermetic.
 func (f *fakeNamecheap) configuration() *config.Configuration {
+	return f.configurationWithKey("key")
+}
+
+func (f *fakeNamecheap) configurationWithKey(apiKey string) *config.Configuration {
 	for _, k := range []string{
 		"NAMECHEAP_USER_NAME", "NAMECHEAP_API_USER", "NAMECHEAP_API_KEY",
 		"NAMECHEAP_CLIENT_IP", "NAMECHEAP_USE_SANDBOX",
@@ -97,8 +102,28 @@ func (f *fakeNamecheap) configuration() *config.Configuration {
 	return &config.Configuration{
 		UserName: new("user"),
 		APIUser:  new("user"),
-		APIKey:   new("key"),
+		APIKey:   new(apiKey),
 		BaseURL:  new(f.server.URL),
+	}
+}
+
+func domainRecordsPrior(
+	input DomainRecords,
+	output *DomainRecordsOutput,
+) runtime.Prior[DomainRecords, *DomainRecordsOutput, *config.Configuration] {
+	return runtime.Prior[DomainRecords, *DomainRecordsOutput, *config.Configuration]{
+		Inputs:  input,
+		Outputs: output,
+	}
+}
+
+func domainNameserversPrior(
+	input DomainNameservers,
+	output *DomainNameserversOutput,
+) runtime.Prior[DomainNameservers, *DomainNameserversOutput, *config.Configuration] {
+	return runtime.Prior[DomainNameservers, *DomainNameserversOutput, *config.Configuration]{
+		Inputs:  input,
+		Outputs: output,
 	}
 }
 

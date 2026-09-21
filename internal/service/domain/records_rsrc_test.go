@@ -8,6 +8,8 @@ import (
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin-library-namecheap/internal/config"
 )
 
 const itDomain = "example.com"
@@ -79,6 +81,107 @@ func TestDomainRecordsCreateOverwrite(t *testing.T) {
 	assert.ElementsMatch(t,
 		[]string{recordKey("www", "A", "192.0.2.1"), recordKey("txt", "TXT", "hello from unobin")},
 		outputKeys(out.Records))
+}
+
+func TestDomainRecordsDefinition(t *testing.T) {
+	fake := newFakeNamecheap(t)
+	definition := DomainRecordsDefinition()
+	require.Equal(t, 1, definition.SchemaVersion)
+	require.NotNil(t, definition.Validate)
+	require.NotPanics(t, func() {
+		runtime.MakeResource[DomainRecords, *DomainRecordsOutput, *config.Configuration](
+			definition,
+		)
+	})
+	require.NoError(t, definition.Validate(context.Background(), DomainRecords{
+		Domain:  itDomain,
+		Mode:    "MERGE",
+		Records: []Record{{Hostname: "www", Type: "A", Address: "192.0.2.1"}},
+	}, fake.configuration()))
+	require.Empty(t, fake.sent("namecheap.domains.dns.setHosts"))
+	require.Empty(t, fake.sent("namecheap.domains.dns.setDefault"))
+}
+
+func TestDomainRecordsDefinitionRejectsInvalidInputs(t *testing.T) {
+	definition := DomainRecordsDefinition()
+	tests := []struct {
+		name  string
+		input DomainRecords
+		want  string
+	}{
+		{
+			name: "malformed CAA",
+			input: DomainRecords{
+				Domain: itDomain,
+				Mode:   "MERGE",
+				Records: []Record{
+					{Hostname: "@", Type: "CAA", Address: `0 issue "example.com`},
+				},
+			},
+			want: "mismatched quotes",
+		},
+		{
+			name: "duplicate record",
+			input: DomainRecords{
+				Domain: itDomain,
+				Mode:   "MERGE",
+				Records: []Record{
+					{Hostname: "www", Type: "A", Address: "192.0.2.1"},
+					{Hostname: "WWW", Type: "A", Address: "192.0.2.1"},
+				},
+			},
+			want: "duplicate record",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := definition.Validate(context.Background(), tt.input, &config.Configuration{})
+			require.ErrorContains(t, err, tt.want)
+		})
+	}
+}
+
+func TestDomainRecordsReadUsesPriorTargetAndCurrentCredentials(t *testing.T) {
+	priorAPI := newFakeNamecheap(t)
+	priorAPI.seed(itDomain, fakeDomain{
+		usingOurDNS: true,
+		emailType:   "NONE",
+		hosts: []fakeHost{
+			{id: 1, name: "www", rtype: "A", address: "192.0.2.1", ttl: 1800},
+		},
+	})
+	desiredAPI := newFakeNamecheap(t)
+
+	priorInput := DomainRecords{
+		Domain:  itDomain,
+		Mode:    "MERGE",
+		Records: []Record{{Hostname: "www", Type: "A", Address: "192.0.2.1"}},
+	}
+	prior := domainRecordsPrior(priorInput, &DomainRecordsOutput{
+		Domain: itDomain,
+		Mode:   "MERGE",
+		Records: []RecordOutput{
+			{Hostname: "www", Type: "A", Address: "192.0.2.1"},
+		},
+	})
+	prior.Configuration = priorAPI.configurationWithKey("revoked-key")
+	desired := &DomainRecords{
+		Domain:  "new.example.com",
+		Mode:    "MERGE",
+		Records: []Record{{Hostname: "api", Type: "A", Address: "192.0.2.2"}},
+	}
+
+	out, err := desired.Read(
+		context.Background(),
+		desiredAPI.configurationWithKey("current-key"),
+		prior,
+	)
+	require.NoError(t, err)
+	require.Equal(t, itDomain, out.Domain)
+	require.Equal(t, []string{recordKey("www", "A", "192.0.2.1")}, outputKeys(out.Records))
+	require.Empty(t, desiredAPI.sent("namecheap.domains.dns.getList"))
+	form := lastForm(t, priorAPI, "namecheap.domains.dns.getList")
+	require.Equal(t, "current-key", form.Get("ApiKey"))
 }
 
 func TestDomainRecordsCreateMergePreservesAndFiltersParking(t *testing.T) {
@@ -227,7 +330,7 @@ func TestDomainRecordsReadOverwriteReturnsAll(t *testing.T) {
 		Mode:    "OVERWRITE",
 		Records: []Record{{Hostname: "www", Type: "A", Address: "192.0.2.1"}},
 	}
-	out, err := r.Read(context.Background(), f.configuration(), nil)
+	out, err := r.Read(context.Background(), f.configuration(), domainRecordsPrior(*r, nil))
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{
 		recordKey("www", "A", "192.0.2.1"),
@@ -250,7 +353,7 @@ func TestDomainRecordsReadMergeReturnsManaged(t *testing.T) {
 		Mode:    "MERGE",
 		Records: []Record{{Hostname: "www", Type: "A", Address: "192.0.2.1"}},
 	}
-	out, err := r.Read(context.Background(), f.configuration(), nil)
+	out, err := r.Read(context.Background(), f.configuration(), domainRecordsPrior(*r, nil))
 	require.NoError(t, err)
 	assert.Equal(t, []string{recordKey("www", "A", "192.0.2.1")}, outputKeys(out.Records))
 }
@@ -283,7 +386,7 @@ func TestDomainRecordsReadMergeUsesPriorOutputRecords(t *testing.T) {
 			},
 		},
 	}
-	out, err := r.Read(context.Background(), f.configuration(), prior)
+	out, err := r.Read(context.Background(), f.configuration(), domainRecordsPrior(*r, prior))
 	require.NoError(t, err)
 	assert.Equal(t, []string{
 		recordKey("_abc123.www.example.com.", "CNAME", "_x.acm-validations.aws."),
@@ -295,7 +398,7 @@ func TestDomainRecordsReadCustomNSNotFound(t *testing.T) {
 	f.seed(itDomain, fakeDomain{usingOurDNS: false, nameservers: []string{"a.ns.net", "b.ns.net"}})
 
 	r := &DomainRecords{Domain: itDomain, Mode: "MERGE"}
-	_, err := r.Read(context.Background(), f.configuration(), nil)
+	_, err := r.Read(context.Background(), f.configuration(), domainRecordsPrior(*r, nil))
 	assert.ErrorIs(t, err, runtime.ErrNotFound)
 }
 
@@ -315,13 +418,14 @@ func TestDomainRecordsUpdateMerge(t *testing.T) {
 		Mode:    "MERGE",
 		Records: []Record{{Hostname: "www", Type: "A", Address: "192.0.2.2"}},
 	}
-	prior := runtime.Prior[DomainRecords, *DomainRecordsOutput]{
-		Inputs: DomainRecords{
+	prior := domainRecordsPrior(
+		DomainRecords{
 			Domain:  itDomain,
 			Mode:    "MERGE",
 			Records: []Record{{Hostname: "www", Type: "A", Address: "192.0.2.1"}},
 		},
-	}
+		nil,
+	)
 	_, err := r.Update(context.Background(), f.configuration(), prior)
 	require.NoError(t, err)
 
@@ -345,9 +449,7 @@ func TestDomainRecordsUpdateOverwrite(t *testing.T) {
 		Mode:    "OVERWRITE",
 		Records: []Record{{Hostname: "new", Type: "A", Address: "192.0.2.2"}},
 	}
-	prior := runtime.Prior[DomainRecords, *DomainRecordsOutput]{
-		Inputs: DomainRecords{Domain: itDomain, Mode: "OVERWRITE"},
-	}
+	prior := domainRecordsPrior(DomainRecords{Domain: itDomain, Mode: "OVERWRITE"}, nil)
 	_, err := r.Update(context.Background(), f.configuration(), prior)
 	require.NoError(t, err)
 	assert.Equal(t, []string{recordKey("new", "A", "192.0.2.2")}, hostKeys(f.state(itDomain).hosts))
@@ -366,7 +468,11 @@ func TestDomainRecordsDeleteOverwrite(t *testing.T) {
 		Mode:    "OVERWRITE",
 		Records: []RecordOutput{{Hostname: "www", Type: "A", Address: "192.0.2.1"}},
 	}
-	require.NoError(t, r.Delete(context.Background(), f.configuration(), prior))
+	require.NoError(t, r.Delete(
+		context.Background(),
+		f.configuration(),
+		domainRecordsPrior(*r, prior),
+	))
 	assert.Empty(t, f.state(itDomain).hosts)
 	assert.Equal(t, "NONE", lastForm(t, f, "namecheap.domains.dns.setHosts").Get("EmailType"))
 }
@@ -388,7 +494,11 @@ func TestDomainRecordsDeleteMerge(t *testing.T) {
 		Mode:    "MERGE",
 		Records: []RecordOutput{{Hostname: "www", Type: "A", Address: "192.0.2.1"}},
 	}
-	require.NoError(t, r.Delete(context.Background(), f.configuration(), prior))
+	require.NoError(t, r.Delete(
+		context.Background(),
+		f.configuration(),
+		domainRecordsPrior(*r, prior),
+	))
 
 	// Only the managed www record is removed; the unmanaged blog record stays.
 	assert.Equal(t, []string{recordKey("blog", "A", "203.0.113.9")},

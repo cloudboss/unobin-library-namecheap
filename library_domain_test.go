@@ -61,19 +61,17 @@ func assertConfigurationSchema(t *testing.T, schema *runtime.LibrarySchema) {
 	assert.Empty(t, schema.ConfigurationConstraints)
 }
 
-// TestLibraryRegistersDomainResources checks the runtime registration: both
-// domain resources are present under Resources and dispatch to their output
-// type.
 func TestLibraryRegistersDomainResources(t *testing.T) {
 	lib := library.Library()
-	cases := map[string]reflect.Type{
-		"domain-records":     reflect.TypeFor[*domain.DomainRecordsOutput](),
-		"domain-nameservers": reflect.TypeFor[*domain.DomainNameserversOutput](),
+	cases := map[string]any{
+		"domain-records":     &domain.DomainRecords{},
+		"domain-nameservers": &domain.DomainNameservers{},
 	}
-	for key, outputType := range cases {
+	for key, receiverType := range cases {
 		t.Run(key, func(t *testing.T) {
 			require.Contains(t, lib.Resources, key)
-			assert.Equal(t, outputType, lib.Resources[key].OutputType())
+			assert.Equal(t, 1, lib.Resources[key].SchemaVersion())
+			assert.IsType(t, receiverType, lib.Resources[key].NewReceiver())
 		})
 	}
 }

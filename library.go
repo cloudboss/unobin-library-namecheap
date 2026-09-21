@@ -28,12 +28,12 @@ func Library() *runtime.Library {
 				domain.DomainRecords,
 				*domain.DomainRecordsOutput,
 				*config.Configuration,
-			](),
+			](domain.DomainRecordsDefinition()),
 			"domain-nameservers": runtime.MakeResource[
 				domain.DomainNameservers,
 				*domain.DomainNameserversOutput,
 				*config.Configuration,
-			](),
+			](domain.DomainNameserversDefinition()),
 		},
 	}
 }

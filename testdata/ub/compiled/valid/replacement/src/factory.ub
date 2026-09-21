@@ -1,0 +1,27 @@
+factory: {
+  inputs: {
+    domain:      { type: string }
+    record-type: { type: string }
+    address:     { type: string }
+    namecheap-config: {
+      type:    library-config('github.com/cloudboss/unobin-library-namecheap')
+      default: {}
+    }
+  }
+
+  imports: { namecheap: 'github.com/cloudboss/unobin-library-namecheap' }
+
+  library-configs: { namecheap: input.namecheap-config }
+
+  resources: {
+    main: namecheap.domain-records {
+      domain: input.domain
+      mode:   'OVERWRITE'
+      records: [{
+        hostname: 'www'
+        type:     input.record-type
+        address:  input.address
+      }]
+    }
+  }
+}
