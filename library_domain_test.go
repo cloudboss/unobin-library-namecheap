@@ -4,8 +4,10 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/golibrary"
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/libraryapi"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/assert"
@@ -15,6 +17,21 @@ import (
 	"github.com/cloudboss/unobin-library-namecheap/internal/config"
 	"github.com/cloudboss/unobin-library-namecheap/internal/service/domain"
 )
+
+func TestLibraryCompatibility(t *testing.T) {
+	compatibility := runtime.LibraryCompatibility{
+		RequiredAPI:            "1.0",
+		SuggestedUnobinVersion: "v0.12.0",
+	}
+	assert.Equal(t, compatibility, library.Library().Compatibility)
+
+	declaration, err := golibrary.ReadCompatibility(".", ".")
+	require.NoError(t, err)
+	require.NotNil(t, declaration)
+	assert.Equal(t, compatibility.RequiredAPI, declaration.RequiredAPI)
+	assert.Equal(t, compatibility.SuggestedUnobinVersion, declaration.SuggestedUnobinVersion)
+	assert.NoError(t, libraryapi.Check(declaration.RequiredAPI, libraryapi.Current()))
+}
 
 func TestLibraryRegistersConfiguration(t *testing.T) {
 	lib := library.Library()

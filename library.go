@@ -20,8 +20,12 @@ func LibraryConfiguration() *cfg.ConfigurationType[*config.Configuration] {
 
 func Library() *runtime.Library {
 	return &runtime.Library{
-		Name:          "namecheap",
-		Description:   "Namecheap library for unobin.",
+		Name:        "namecheap",
+		Description: "Namecheap library for unobin.",
+		Compatibility: runtime.LibraryCompatibility{
+			RequiredAPI:            "1.0",
+			SuggestedUnobinVersion: "v0.12.0",
+		},
 		Configuration: LibraryConfiguration(),
 		Resources: map[string]runtime.ResourceRegistration{
 			"domain-records": runtime.MakeResource[

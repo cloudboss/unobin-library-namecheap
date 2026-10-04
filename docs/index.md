@@ -4,6 +4,9 @@ The Namecheap library manages DNS records and custom nameserver delegation for
 Namecheap domains. Import it in factory source and pass one Namecheap
 configuration value to the import alias.
 
+This library requires Unobin library API `1.0` and is tested with Unobin
+`v0.12.0-a.8`. Library API versions are independent of Unobin release versions.
+
 ```
 factory: {
   description: 'Creates one DNS record.'
